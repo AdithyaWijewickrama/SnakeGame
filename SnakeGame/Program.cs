@@ -34,10 +34,10 @@ namespace SnakeGame
                 if (Console.KeyAvailable)
                 {
                     ConsoleKeyInfo key = Console.ReadKey(true);
-                    if (key.Key == ConsoleKey.UpArrow) { snake.HDir = SnakeMoves.UP; }
-                    else if (key.Key == ConsoleKey.DownArrow) { snake.HDir = SnakeMoves.DOWN; }
-                    else if (key.Key == ConsoleKey.LeftArrow) { snake.HDir = SnakeMoves.LEFT; }
-                    else if (key.Key == ConsoleKey.RightArrow) { snake.HDir = SnakeMoves.RIGHT; }
+                    if (key.Key == ConsoleKey.UpArrow && snake.HDir != SnakeMoves.DOWN) { snake.HDir = SnakeMoves.UP; }
+                    else if (key.Key == ConsoleKey.DownArrow && snake.HDir != SnakeMoves.UP) { snake.HDir = SnakeMoves.DOWN; }
+                    else if (key.Key == ConsoleKey.LeftArrow && snake.HDir != SnakeMoves.RIGHT) { snake.HDir = SnakeMoves.LEFT; }
+                    else if (key.Key == ConsoleKey.RightArrow && snake.HDir != SnakeMoves.LEFT) { snake.HDir = SnakeMoves.RIGHT; }
                 }
                 int appleX = random.Next(0, ui.Width);
                 int appleY = random.Next(0, ui.Height);
@@ -75,10 +75,28 @@ namespace SnakeGame
             body.AddLast(hPoint);
             body.AddLast(new int[] { 0, 1 });
             body.AddLast(new int[] { 0, 0 });
+            
         }
         public char BodyChar { set { this.bodyChar = value; } get { return bodyChar; } }
 
-        public int BodyLength { set { this.bodyLength = value; } get { return bodyLength; } }
+        public int BodyLength { set { 
+                switch (getTailDirrection())
+                {
+                    case SnakeMoves.DOWN:
+                        body.AddLast(new int[] { body.Last.Value[0], body.Last.Value[1] + (value-this.bodyLength) });
+                        break;
+                    case SnakeMoves.UP:
+                        body.AddLast(new int[] { body.Last.Value[0], body.Last.Value[1] - (value - this.bodyLength) });
+                        break;
+                    case SnakeMoves.RIGHT:
+                        body.AddLast(new int[] { body.Last.Value[0] + (value - this.bodyLength), body.Last.Value[1] });
+                        break;
+                    case SnakeMoves.LEFT:
+                        body.AddLast(new int[] { body.Last.Value[0] - (value - this.bodyLength), body.Last.Value[1] });
+                        break;
+                }
+                this.bodyLength = value;
+            } get { return bodyLength; } }
 
         public SnakeMoves HDir { set { this.hDir = value; } get => hDir; }
 
@@ -130,6 +148,22 @@ namespace SnakeGame
             }
             return indexes.Count > 0 ? indexes : null;
         }
+
+        public void grow(int parts)
+        {
+            BodyLength+=parts;
+        }
+
+        private SnakeMoves getTailDirrection()
+        {
+            int x_ = body.Last.Value[0] - body.Last.Previous.Value[0];
+            int y_ = body.Last.Value[1] - body.Last.Previous.Value[1];
+            if (x_ == 0 && y_ == 1) { return SnakeMoves.DOWN; }
+            else if (x_ == 0 && y_ == -1) { return SnakeMoves.UP; }
+            else if (x_ == 1 && y_ == 0) { return SnakeMoves.RIGHT; }
+            else { return SnakeMoves.LEFT; }
+        }
+
 
     }
     class GameUi
