@@ -1,12 +1,8 @@
 ﻿using System;
-using System.CodeDom;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
-using System.Xml.Linq;
 
 namespace SnakeGame
 {
@@ -15,41 +11,69 @@ namespace SnakeGame
         UP, DOWN, RIGHT, LEFT
     }
 
+    class Test
+    {
+        public static void run()
+        {
+            Console.WriteLine(new int[] { 1, 2, 3 }.SequenceEqual(new int[] { 1, 2, 3 }));
+        }
+    }
+
     class Program
     {
         private static int speed = 10;//1-100
         private static int refreshRate = 10;
-        private static readonly Random random = new Random();
         static void Main(string[] args)
         {
             Snake snake = new Snake('#');
-            GameUi ui = new GameUi(snake);
+            Treats treats = new Treats('*','@','?');
+            GameUi ui = new GameUi(snake,treats);
+            Mechanics mech = new Mechanics(snake, treats, ui);
+            mech.newApple();
+
             int count = 0;
+            bool test = false;
             //Game loop
-            while (true)
+            if(!test){
+                while (true)
+                {
+                    //ConsoleKeyInfo key = Console.ReadKey(true);
+                    bool keyTyped = true;
+                    //else { keyTyped = false; }
+                    if (Console.KeyAvailable)
+                    {
+                        ConsoleKeyInfo key = Console.ReadKey(true);
+                        if (key.Key == ConsoleKey.UpArrow && snake.HDir != SnakeMoves.DOWN) { snake.HDir = SnakeMoves.UP; }
+                        else if (key.Key == ConsoleKey.DownArrow && snake.HDir != SnakeMoves.UP) { snake.HDir = SnakeMoves.DOWN; }
+                        else if (key.Key == ConsoleKey.LeftArrow && snake.HDir != SnakeMoves.RIGHT) { snake.HDir = SnakeMoves.LEFT; }
+                        else if (key.Key == ConsoleKey.RightArrow && snake.HDir != SnakeMoves.LEFT) { snake.HDir = SnakeMoves.RIGHT; }
+                    }
+                    if (count == speed)
+                    {
+                        count = 0;
+                        snake.move();
+                    }
+                    if (mech.collided())
+                    {
+                        ui.gameOver();
+                    }
+                    else
+                    {
+                        ui.printUI();
+                    }
+                    if(mech.eatenApple())
+                    {
+                        mech.eatApple();
+                        mech.newApple();
+                    }
+                    count++;
+                    Thread.Sleep(refreshRate);
+                    ui.clearConsole();
+                }
+            }
+            else
             {
-                //ConsoleKeyInfo key = Console.ReadKey(true);
-                bool keyTyped = true;
-                //else { keyTyped = false; }
-                if (Console.KeyAvailable)
-                {
-                    ConsoleKeyInfo key = Console.ReadKey(true);
-                    if (key.Key == ConsoleKey.UpArrow && snake.HDir != SnakeMoves.DOWN) { snake.HDir = SnakeMoves.UP; }
-                    else if (key.Key == ConsoleKey.DownArrow && snake.HDir != SnakeMoves.UP) { snake.HDir = SnakeMoves.DOWN; }
-                    else if (key.Key == ConsoleKey.LeftArrow && snake.HDir != SnakeMoves.RIGHT) { snake.HDir = SnakeMoves.LEFT; }
-                    else if (key.Key == ConsoleKey.RightArrow && snake.HDir != SnakeMoves.LEFT) { snake.HDir = SnakeMoves.RIGHT; }
-                }
-                int appleX = random.Next(0, ui.Width);
-                int appleY = random.Next(0, ui.Height);
-                if (count == speed)
-                {
-                    count = 0;
-                    snake.move();
-                }
-                count++;
-                ui.printUI();
-                Thread.Sleep(refreshRate);
-                ui.clearConsole();
+                Test.run();
             }
         }
     }
@@ -61,10 +85,6 @@ namespace SnakeGame
 
         private int bodyLength = 3;
         /// <summary>
-        /// Head point of the snake
-        /// </summary>
-        private int[] hPoint = { 0, 2 };
-        /// <summary>
         /// Current direction of the snake
         /// </summary>
         private SnakeMoves hDir = SnakeMoves.DOWN;
@@ -72,12 +92,19 @@ namespace SnakeGame
         {
             this.bodyChar = bodyChar;
             body = new LinkedList<int[]>();
-            body.AddLast(hPoint);
+            body.AddLast(new int[]{ 0, 2 });
             body.AddLast(new int[] { 0, 1 });
             body.AddLast(new int[] { 0, 0 });
             
         }
         public char BodyChar { set { this.bodyChar = value; } get { return bodyChar; } }
+        public SnakeMoves HDir { set { this.hDir = value; } get => hDir; }
+
+
+        public int[] getHPoint()
+        {
+            return body.First.Value;
+        }
 
         public int BodyLength { set { 
                 switch (getTailDirrection())
@@ -98,7 +125,6 @@ namespace SnakeGame
                 this.bodyLength = value;
             } get { return bodyLength; } }
 
-        public SnakeMoves HDir { set { this.hDir = value; } get => hDir; }
 
         public void move()
         {
@@ -118,16 +144,6 @@ namespace SnakeGame
                     break;
             }
             body.RemoveLast();
-        }
-
-        public int getHX()
-        {
-            return this.hPoint[0];
-        }
-
-        public int getHY()
-        {
-            return this.hPoint[1];
         }
 
         public ArrayList getBodyPartsInRow(int row)
@@ -164,17 +180,119 @@ namespace SnakeGame
             else { return SnakeMoves.LEFT; }
         }
 
+        public bool isBodyCoord(int[] coord)
+        {
+            foreach (int[] c in body)
+            {
+                if (c.SequenceEqual(coord))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
 
     }
+
+    class Treats
+    {
+        private int[] appleCoord;
+        private char apple;
+        private char bigApple;
+        private char bomb;
+
+
+        public Treats(char apple,char bigApple, char bomb)
+        {
+            this.apple = apple;
+            this.bigApple = bigApple;
+            this.bomb = bomb;
+        }
+
+        public char Apple
+        {
+            get { return apple; }
+            set { apple = value; }
+        }
+
+        public char BigApple
+        {
+            get { return bigApple; }
+            set { bigApple = value; }
+        }
+
+        public char Bomb
+        {
+            get { return bomb; }
+            set { bomb = value; }
+        }
+
+        public int[] AppleCoord
+        {
+            get { return appleCoord; }
+            set { appleCoord = value; }
+        }
+
+        public int[] getAppleCoords(Snake snake,int width,int height)
+        {
+            Random random = new Random();
+            int[] c = null;
+            do
+            {
+                c = new int[] { random.Next(width), random.Next(height) };
+            }while (snake.isBodyCoord(c));
+            return c;
+        }
+
+    }
+
+    class Mechanics
+    {
+        Snake snake;
+        Treats treats;
+        GameUi ui;
+
+        public Mechanics(Snake snake, Treats treats, GameUi ui)
+        {
+            this.ui = ui;
+            this.snake = snake;
+            this.treats = treats;
+        }
+
+        public bool collided()
+        {
+            return (0 < snake.getHPoint()[1] && snake.getHPoint()[1] < ui.Width && 0 < snake.getHPoint()[0] && snake.getHPoint()[0] < ui.Height)
+                && !snake.isBodyCoord(snake.getHPoint());
+        }
+
+        public bool eatenApple()
+        {
+            return snake.getHPoint().SequenceEqual(treats.AppleCoord);
+        }
+
+        public void eatApple()
+        {
+            snake.grow(1);
+            newApple();
+        }
+
+        public void newApple()
+        {
+            treats.AppleCoord = treats.getAppleCoords(snake, ui.Width, ui.Height);
+        }
+    }
+
     class GameUi
     {
         private int border = 100;
         private int width = 40;
         private int height = 20;
+        private Treats treats;
         private Snake snake;
-        public GameUi(Snake snake)
+        public GameUi(Snake snake,Treats treats)
         {
             this.snake = snake;
+            this.treats = treats;
         }
         public void printUI()
         {
@@ -182,20 +300,28 @@ namespace SnakeGame
             Console.WriteLine(new string('=', width));
             for (int i = 0; i < height; i++)
             {
+                char[] row = $"{new string(' ', width - 1)}".ToCharArray();
                 ArrayList bp = snake.getBodyPartsInRow(i);
                 if (bp != null)
                 {
-                    char[] row = $"{new string(' ', width - 1)}".ToCharArray();
                     foreach (var p in bp)
                     {
                         row[(int)p] = snake.BodyChar;
                     }
-                    Console.WriteLine($"|{new string(row)}|");
                 }
-                else
-                    Console.WriteLine($"|{new string(' ', width - 1)}|");
+                if (treats.AppleCoord[1] == i)
+                {
+                    row[treats.AppleCoord[0]] = treats.Apple;
+                }
+                Console.WriteLine($"|{new string(row)}|");   
             }
             Console.WriteLine(new string('=', width));
+        }
+
+        public void gameOver()
+        {
+            Console.WriteLine($"{new string(' ', width / 2 - 5)}SNAKE GAME\n\n\n\n");
+            Console.WriteLine($"{new string(' ', width / 2 - 5)}Game Over!!!");
         }
 
         public void clearConsole()
